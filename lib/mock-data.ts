@@ -4,6 +4,13 @@ import type {
   PendingApproval,
   DashboardMetrics,
   ActivityFeedItem,
+  WorkflowTemplate,
+  PaletteAgent,
+  WorkflowCanvasLayout,
+  LearningEvent,
+  LearningTimeSeriesPoint,
+  BeforeAfterComparison,
+  CrossDomainTransfer,
 } from "./types";
 
 // ── Domains ──
@@ -1314,3 +1321,1049 @@ policies:
     - toolPattern: "flagTransaction"
       approvalType: single
       approverRole: fraud-analyst-senior`;
+
+// ── Agent Workflows ──
+
+export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
+  {
+    id: "suspicious-activity-sar",
+    name: "Suspicious Activity → SAR Filing",
+    description:
+      "Cross-domain investigation pipeline: three wire transfers totaling $148K to offshore jurisdictions from a dormant account trigger fraud analysis, AML investigation, risk profiling, and regulatory filing.",
+    category: "Cross-Domain",
+    agents: [
+      {
+        id: "fraud-intel",
+        name: "Fraud Intelligence Agent",
+        domain: "Credit Cards",
+        role: "Investigation",
+        toolsUsed: ["analyzeTransactionPatterns", "crossRefFraudDB", "scoreTransactionRisk", "profileCustomerBehavior", "flagTransaction"],
+        avgDurationMs: 2800,
+        successRate: 97.3,
+      },
+      {
+        id: "aml-investigation",
+        name: "AML Investigation Agent",
+        domain: "Risk & Compliance",
+        role: "Investigation",
+        toolsUsed: ["traceFundFlows", "screenSanctions", "buildEntityGraph", "scoreAMLRisk", "generateEvidenceChain"],
+        avgDurationMs: 4200,
+        successRate: 95.8,
+      },
+      {
+        id: "customer-risk-profiler",
+        name: "Customer Risk Profiler",
+        domain: "Risk & Compliance",
+        role: "Analysis",
+        toolsUsed: ["aggregateBehavioralSignals", "analyzeVelocity", "assessGeographicRisk", "mapRelationships", "computeCompositeScore"],
+        avgDurationMs: 3100,
+        successRate: 96.4,
+      },
+      {
+        id: "regulatory-filing",
+        name: "Regulatory Filing Agent",
+        domain: "Risk & Compliance",
+        role: "Compliance",
+        toolsUsed: ["compileEvidence", "validateFinCENSchema", "checkCompleteness", "stageSubmission", "generateAuditTrail"],
+        avgDurationMs: 3600,
+        successRate: 99.1,
+      },
+    ],
+    connections: [
+      {
+        fromAgentId: "fraud-intel",
+        toAgentId: "aml-investigation",
+        dataPassed: "Flagged transactions, fraud scores, structuring indicators",
+      },
+      {
+        fromAgentId: "fraud-intel",
+        toAgentId: "customer-risk-profiler",
+        dataPassed: "Customer profile, behavioral anomalies, transaction history",
+      },
+      {
+        fromAgentId: "aml-investigation",
+        toAgentId: "regulatory-filing",
+        dataPassed: "Fund flow analysis, entity graph, AML risk score, evidence chain",
+      },
+      {
+        fromAgentId: "customer-risk-profiler",
+        toAgentId: "regulatory-filing",
+        dataPassed: "Composite risk score, relationship map, geographic risk assessment",
+      },
+    ],
+    metrics: { totalRuns: 342, successRate: 97.8, avgDuration: "13.7s" },
+    runResult: [
+      {
+        agentId: "fraud-intel",
+        status: "completed",
+        inputData: {
+          accountId: "ACC-MC-7741",
+          accountHolder: "Marcus Chen",
+          alertType: "structuring_detection",
+          transactions: [
+            { id: "WR-0841", amount: 49500, destination: "Cayman Islands", date: "2026-02-28" },
+            { id: "WR-0842", amount: 49800, destination: "Isle of Man", date: "2026-03-01" },
+            { id: "WR-0843", amount: 48700, destination: "Singapore (shell corp)", date: "2026-03-02" },
+          ],
+        },
+        outputData: {
+          fraudScore: 0.96,
+          structuringDetected: true,
+          pattern: "sub-$50K wires across 3 jurisdictions in 72 hours",
+          accountDormancyDays: 247,
+          totalExposure: 148000,
+          flaggedForSAR: true,
+        },
+        reasoning:
+          "Three outbound wires totaling $148,000 detected from account ACC-MC-7741 (Marcus Chen) — dormant for 247 days. Each transaction structured just below the $50,000 reporting threshold: $49,500 to Cayman Islands, $49,800 to Isle of Man, $48,700 to a Singapore shell corporation. Classic structuring pattern with 96% fraud confidence. Flagging for immediate AML investigation and parallel risk profiling.",
+        tokensUsed: 480,
+        durationMs: 2650,
+      },
+      {
+        agentId: "aml-investigation",
+        status: "completed",
+        inputData: {
+          accountId: "ACC-MC-7741",
+          flaggedTransactions: ["WR-0841", "WR-0842", "WR-0843"],
+          structuringDetected: true,
+          totalAmount: 148000,
+        },
+        outputData: {
+          fundFlowTraced: true,
+          sanctionsHits: 0,
+          shellCorpsIdentified: 2,
+          entityGraphNodes: 7,
+          amlRiskScore: 0.93,
+          evidenceChainItems: 14,
+          sarRecommendation: "file_immediately",
+        },
+        reasoning:
+          "Fund flow analysis complete: traced $148K across 3 jurisdictions. Two receiving entities (Isle of Man Ltd, Singapore PTE) are shell corporations with no operating history. Entity graph reveals 7 connected nodes including 2 additional dormant accounts at other institutions. Zero sanctions hits but high-risk geography profile. AML risk score: 0.93. Evidence chain compiled with 14 artifacts including wire instructions, KYC gaps, and beneficial ownership discrepancies. Recommending immediate SAR filing.",
+        tokensUsed: 620,
+        durationMs: 4100,
+      },
+      {
+        agentId: "customer-risk-profiler",
+        status: "completed",
+        inputData: {
+          customerId: "CUST-MC-7741",
+          accountId: "ACC-MC-7741",
+          flaggedBehavior: "structuring",
+        },
+        outputData: {
+          compositeRiskScore: 0.91,
+          behavioralAnomalies: ["account_reactivation", "rapid_high_value_wires", "new_international_destinations"],
+          velocityScore: 0.95,
+          geographicRiskScore: 0.88,
+          relationshipRiskNodes: 4,
+          riskTier: "critical",
+        },
+        reasoning:
+          "Customer risk profile assembled for Marcus Chen. Behavioral signals: account dormant 247 days then sudden reactivation with 3 high-value wires. Velocity score 0.95 — $148K moved in 72 hours versus $0 in prior 8 months. Geographic risk 0.88 — all destinations are high-risk jurisdictions with no prior customer activity. Relationship mapping reveals 4 connected entities across 2 jurisdictions, none with established banking relationships. Composite risk: 0.91 (critical tier).",
+        tokensUsed: 510,
+        durationMs: 2950,
+      },
+      {
+        agentId: "regulatory-filing",
+        status: "completed",
+        inputData: {
+          sarType: "structuring",
+          subjectName: "Marcus Chen",
+          amlRiskScore: 0.93,
+          compositeRiskScore: 0.91,
+          evidenceItems: 14,
+          totalAmount: 148000,
+        },
+        outputData: {
+          sarId: "SAR-2026-0302-MC-7741",
+          filingStatus: "staged_for_submission",
+          finCENValidation: "passed",
+          completenessScore: 98.5,
+          auditTrailEntries: 23,
+          narrativeGenerated: true,
+        },
+        reasoning:
+          "SAR compilation complete for Marcus Chen (SAR-2026-0302-MC-7741). FinCEN schema validation passed — all required fields populated. Completeness score: 98.5%. Generated narrative covering structuring pattern, fund flow analysis, entity relationships, and risk assessment. Audit trail: 23 entries documenting full investigation chain from initial detection through filing. SAR staged for compliance officer review and submission within 24-hour regulatory window.",
+        tokensUsed: 450,
+        durationMs: 3450,
+      },
+    ],
+    weeklyPerformance: [
+      { week: "W1 Jan", successRate: 95.1 },
+      { week: "W2 Jan", successRate: 95.5 },
+      { week: "W3 Jan", successRate: 96.0 },
+      { week: "W4 Jan", successRate: 96.3 },
+      { week: "W1 Feb", successRate: 96.5 },
+      { week: "W2 Feb", successRate: 96.8 },
+      { week: "W3 Feb", successRate: 97.0 },
+      { week: "W4 Feb", successRate: 97.2 },
+      { week: "W1 Mar", successRate: 97.4 },
+      { week: "W2 Mar", successRate: 97.5 },
+      { week: "W3 Mar", successRate: 97.7 },
+      { week: "W4 Mar", successRate: 97.8 },
+    ],
+  },
+  {
+    id: "enterprise-incident-continuity",
+    name: "Enterprise Incident → Business Continuity",
+    description:
+      "Cross-domain incident response: payment gateway JVM heap exhaustion triggers parallel infrastructure remediation and customer impact analysis, converging on coordinated communications.",
+    category: "Cross-Domain",
+    agents: [
+      {
+        id: "incident-commander",
+        name: "Incident Commander Agent",
+        domain: "Platform Operations",
+        role: "Orchestration",
+        toolsUsed: ["triageAlerts", "correlateMonitoringSystems", "classifySeverity", "assignResponseTracks", "coordinateWorkstreams"],
+        avgDurationMs: 1400,
+        successRate: 99.2,
+      },
+      {
+        id: "infra-remediation",
+        name: "Infrastructure Remediation Agent",
+        domain: "Platform Operations",
+        role: "Remediation",
+        toolsUsed: ["analyzeResourceMetrics", "identifyBottlenecks", "executeRunbook", "validateHealth", "updateBaselines"],
+        avgDurationMs: 3200,
+        successRate: 94.6,
+      },
+      {
+        id: "attrition-prediction-inc",
+        name: "Attrition Prediction Agent",
+        domain: "Customer Intelligence",
+        role: "Prediction",
+        toolsUsed: ["analyzeEngagementDecay", "detectTransactionShifts", "monitorCompetitiveSignals", "scoreSentiment", "computeChurnProbability"],
+        avgDurationMs: 2800,
+        successRate: 96.1,
+      },
+      {
+        id: "incident-comms",
+        name: "Incident Communications Agent",
+        domain: "Platform Operations",
+        role: "Communication",
+        toolsUsed: ["draftStatusUpdate", "sendMultiChannelNotification", "trackAcknowledgments", "compilePIR", "escalateToLeadership"],
+        avgDurationMs: 1800,
+        successRate: 98.7,
+      },
+    ],
+    connections: [
+      {
+        fromAgentId: "incident-commander",
+        toAgentId: "infra-remediation",
+        dataPassed: "Severity classification, affected systems, assigned runbook",
+      },
+      {
+        fromAgentId: "incident-commander",
+        toAgentId: "attrition-prediction-inc",
+        dataPassed: "Incident scope, affected customer count, estimated duration",
+      },
+      {
+        fromAgentId: "infra-remediation",
+        toAgentId: "incident-comms",
+        dataPassed: "Remediation status, recovery metrics, actions performed",
+      },
+      {
+        fromAgentId: "attrition-prediction-inc",
+        toAgentId: "incident-comms",
+        dataPassed: "Business impact assessment, at-risk customer segments, churn probability",
+      },
+    ],
+    metrics: { totalRuns: 187, successRate: 94.8, avgDuration: "9.2s" },
+    runResult: [
+      {
+        agentId: "incident-commander",
+        status: "completed",
+        inputData: {
+          alertId: "ALT-2026-0302-P1-892",
+          severity: "P1",
+          service: "payment-gateway",
+          errorRate: "47%",
+          affectedCustomers: 34000,
+          symptom: "JVM heap exhaustion, OOM kills",
+        },
+        outputData: {
+          incidentId: "INC-2026-0302-892",
+          classification: "infrastructure_critical",
+          impactScope: "payment_processing_degraded",
+          assignedRunbook: "RB-JVM-HEAP-001",
+          responseTracksActivated: ["infra_remediation", "business_impact_analysis"],
+          coordinationChannel: "#inc-892-war-room",
+        },
+        reasoning:
+          "P1 alert on payment-gateway: JVM heap exhaustion causing 47% error rate with OOM kills across 3 of 5 pods. 34,000 customers affected — transaction failures and timeouts. Classifying as infrastructure_critical. Activating dual response tracks: infrastructure remediation (runbook RB-JVM-HEAP-001) and parallel business impact analysis to assess customer attrition risk. War room channel created.",
+        tokensUsed: 420,
+        durationMs: 1350,
+      },
+      {
+        agentId: "infra-remediation",
+        status: "completed",
+        inputData: {
+          incidentId: "INC-2026-0302-892",
+          service: "payment-gateway",
+          runbookId: "RB-JVM-HEAP-001",
+          symptom: "JVM heap exhaustion",
+        },
+        outputData: {
+          rootCause: "memory_leak_in_serialization_cache",
+          actionsPerformed: [
+            "Forced GC on surviving pods",
+            "Rolling restart with -Xmx increase to 4G",
+            "Deployed hotfix disabling unbounded cache",
+            "Scaled replicas 5→8 for recovery burst",
+          ],
+          recoveryTime: "3m 42s",
+          errorRateAfter: "0.4%",
+          healthCheckStatus: "all_green",
+          baselineUpdated: true,
+        },
+        reasoning:
+          "Resource analysis: JVM heap at 98.7% across pods, GC pause times 4.2s (10x normal). Root cause: unbounded serialization cache growing without eviction — introduced in deploy v2.14.3 yesterday. Executing 4-step remediation: (1) Forced GC on 2 surviving pods to buy time, (2) Rolling restart with heap increase 2G→4G, (3) Deployed hotfix disabling the unbounded cache, (4) Scaled 5→8 replicas for recovery burst. Error rate dropped from 47% to 0.4% in 3m 42s. All health checks green. Baseline updated.",
+        tokensUsed: 580,
+        durationMs: 3100,
+      },
+      {
+        agentId: "attrition-prediction-inc",
+        status: "completed",
+        inputData: {
+          incidentId: "INC-2026-0302-892",
+          affectedCustomers: 34000,
+          errorRate: "47%",
+          estimatedDuration: "15 minutes",
+          serviceAffected: "payment_processing",
+        },
+        outputData: {
+          customersImpacted: 34000,
+          transactionsAffected: 8200,
+          estimatedRevenueAtRisk: 2100000,
+          highValueCustomersAffected: 147,
+          churnProbabilityIncrease: 0.034,
+          atRiskSegment: "premium_cardholders",
+          recommendedRetentionActions: ["proactive_apology", "fee_waiver", "priority_support"],
+        },
+        reasoning:
+          "Business impact assessment: 34,000 customers experienced payment failures during 15-minute degradation. 8,200 transactions failed or timed out — estimated $2.1M in affected transaction volume. Critical finding: 147 high-value customers (platinum/wealth tier) impacted. Churn probability increase: +3.4% for affected segment. Premium cardholders identified as highest attrition risk. Recommending proactive outreach: personalized apology, automatic fee waiver for affected transactions, and priority support queue access.",
+        tokensUsed: 490,
+        durationMs: 2700,
+      },
+      {
+        agentId: "incident-comms",
+        status: "completed",
+        inputData: {
+          incidentId: "INC-2026-0302-892",
+          remediationStatus: "resolved",
+          recoveryTime: "3m 42s",
+          businessImpact: {
+            customersAffected: 34000,
+            highValueAtRisk: 147,
+            revenueAtRisk: 2100000,
+          },
+        },
+        outputData: {
+          statusUpdatesSent: 4,
+          channelsNotified: ["slack_war_room", "email_leadership", "status_page", "customer_sms"],
+          acknowledgmentsReceived: 12,
+          pirDrafted: true,
+          pirId: "PIR-2026-0302-892",
+          leadershipBriefingScheduled: true,
+        },
+        reasoning:
+          "Coordinated communications across 4 channels: (1) Slack war room — real-time updates to engineering, (2) Leadership email — business impact summary with $2.1M exposure and 147 high-value customers at risk, (3) Status page — public incident resolved notice, (4) SMS — proactive notification to affected premium customers. 12 acknowledgments received from stakeholders. Post-incident review drafted (PIR-2026-0302-892) with root cause, timeline, and 3 follow-up actions. Leadership briefing scheduled for tomorrow 9 AM.",
+        tokensUsed: 440,
+        durationMs: 1750,
+      },
+    ],
+    weeklyPerformance: [
+      { week: "W1 Jan", successRate: 91.2 },
+      { week: "W2 Jan", successRate: 91.8 },
+      { week: "W3 Jan", successRate: 92.1 },
+      { week: "W4 Jan", successRate: 92.5 },
+      { week: "W1 Feb", successRate: 92.8 },
+      { week: "W2 Feb", successRate: 93.2 },
+      { week: "W3 Feb", successRate: 93.5 },
+      { week: "W4 Feb", successRate: 93.9 },
+      { week: "W1 Mar", successRate: 94.1 },
+      { week: "W2 Mar", successRate: 94.3 },
+      { week: "W3 Mar", successRate: 94.6 },
+      { week: "W4 Mar", successRate: 94.8 },
+    ],
+  },
+  {
+    id: "high-value-retention",
+    name: "High-Value Customer Retention",
+    description:
+      "Cross-domain retention workflow: platinum wealth client Dr. Priya Ramanathan ($2.34M relationship) showing 78% churn probability triggers parallel risk assessment and offer design, converging on orchestrated intervention.",
+    category: "Cross-Domain",
+    agents: [
+      {
+        id: "attrition-prediction",
+        name: "Attrition Prediction Agent",
+        domain: "Customer Intelligence",
+        role: "Prediction",
+        toolsUsed: ["analyzeEngagementDecay", "detectTransactionShifts", "monitorCompetitiveSignals", "scoreSentiment", "computeChurnProbability"],
+        avgDurationMs: 2600,
+        successRate: 96.5,
+      },
+      {
+        id: "customer-risk-profiler-ret",
+        name: "Customer Risk Profiler",
+        domain: "Risk & Compliance",
+        role: "Analysis",
+        toolsUsed: ["aggregateBehavioralSignals", "analyzeVelocity", "assessGeographicRisk", "mapRelationships", "computeCompositeScore"],
+        avgDurationMs: 2900,
+        successRate: 96.8,
+      },
+      {
+        id: "product-strategy",
+        name: "Product Strategy Agent",
+        domain: "Customer Intelligence",
+        role: "Strategy",
+        toolsUsed: ["evaluateProductFit", "modelOfferEconomics", "simulateAcceptanceProbability", "constructEngagementPlan", "assessCannibalization"],
+        avgDurationMs: 3400,
+        successRate: 95.2,
+      },
+      {
+        id: "relationship-orchestrator",
+        name: "Relationship Orchestrator Agent",
+        domain: "Customer Intelligence",
+        role: "Orchestration",
+        toolsUsed: ["selectOutreachTiming", "personalizeRMBriefing", "coordinateChannels", "triggerDigitalIntervention", "measureEffectiveness"],
+        avgDurationMs: 2200,
+        successRate: 97.4,
+      },
+    ],
+    connections: [
+      {
+        fromAgentId: "attrition-prediction",
+        toAgentId: "customer-risk-profiler-ret",
+        dataPassed: "Churn probability, engagement decay signals, behavioral shifts",
+      },
+      {
+        fromAgentId: "attrition-prediction",
+        toAgentId: "product-strategy",
+        dataPassed: "Customer profile, product gaps, competitive signals",
+      },
+      {
+        fromAgentId: "customer-risk-profiler-ret",
+        toAgentId: "relationship-orchestrator",
+        dataPassed: "Risk assessment, relationship value, regulatory constraints",
+      },
+      {
+        fromAgentId: "product-strategy",
+        toAgentId: "relationship-orchestrator",
+        dataPassed: "Recommended offers, economics model, acceptance probability",
+      },
+    ],
+    metrics: { totalRuns: 456, successRate: 95.6, avgDuration: "11.1s" },
+    runResult: [
+      {
+        agentId: "attrition-prediction",
+        status: "completed",
+        inputData: {
+          customerId: "CUST-PR-2341",
+          customerName: "Dr. Priya Ramanathan",
+          segment: "platinum_wealth",
+          relationshipValue: 2340000,
+          tenure: "12 years",
+          products: ["platinum_card", "wealth_management", "private_banking", "mortgage"],
+        },
+        outputData: {
+          churnProbability: 0.78,
+          engagementDecayRate: 0.42,
+          transactionVolumeChange: -34,
+          competitiveSignals: ["competitor_app_usage_detected", "rate_comparison_searches"],
+          sentimentScore: 0.31,
+          timeToChurn: "45 days",
+          primaryDrivers: ["fee_sensitivity", "digital_experience_gap", "competitor_wealth_offer"],
+        },
+        reasoning:
+          "High-value attrition alert: Dr. Priya Ramanathan, platinum wealth client with $2.34M relationship spanning 12 years. Churn probability: 78%. Key signals: (1) Transaction volume down 34% over 90 days, (2) Engagement decay rate 0.42 — declining app logins and statement reviews, (3) Competitive signals detected — competitor wealth app installed, rate comparison searches in last 2 weeks, (4) Sentiment score dropped to 0.31 after recent fee dispute. Estimated 45 days to churn. Primary drivers: fee sensitivity, digital experience gap vs. competitors, and a competing wealth management offer.",
+        tokensUsed: 520,
+        durationMs: 2500,
+      },
+      {
+        agentId: "customer-risk-profiler-ret",
+        status: "completed",
+        inputData: {
+          customerId: "CUST-PR-2341",
+          churnProbability: 0.78,
+          relationshipValue: 2340000,
+          segment: "platinum_wealth",
+        },
+        outputData: {
+          compositeRiskScore: 0.82,
+          revenueAtRisk: 187200,
+          lifetimeValueRemaining: 4680000,
+          relationshipDepth: 4,
+          crossSellOpportunities: 2,
+          retentionPriority: "critical",
+          regulatoryConstraints: ["suitability_requirement", "cooling_off_period"],
+        },
+        reasoning:
+          "Risk assessment for Dr. Ramanathan: composite risk score 0.82 (critical). Annual revenue at risk: $187,200. Remaining lifetime value estimate: $4.68M based on segment actuarial tables. Relationship depth: 4 active products — losing this client cascades across platinum card, wealth management, private banking, and mortgage. Cross-sell opportunity: international transfer premium and estate planning — could deepen relationship. Regulatory note: any retention offer must meet suitability requirements; wealth advisory changes require cooling-off period.",
+        tokensUsed: 470,
+        durationMs: 2800,
+      },
+      {
+        agentId: "product-strategy",
+        status: "completed",
+        inputData: {
+          customerId: "CUST-PR-2341",
+          churnDrivers: ["fee_sensitivity", "digital_experience_gap", "competitor_wealth_offer"],
+          currentProducts: ["platinum_card", "wealth_management", "private_banking", "mortgage"],
+          competitorOffer: "wealth_management_0.5%_lower_fee",
+        },
+        outputData: {
+          recommendedOffers: [
+            { type: "fee_reduction", details: "Waive annual fee for 2 years ($950 value)", acceptanceProbability: 0.72 },
+            { type: "rate_match", details: "Match competitor wealth mgmt fee (0.5% reduction)", acceptanceProbability: 0.68 },
+            { type: "exclusive_access", details: "Private wealth digital platform early access", acceptanceProbability: 0.81 },
+          ],
+          bundleEconomics: { costToRetain: 42000, revenueProtected: 187200, roi: 3.46 },
+          cannibalizationRisk: "low",
+          optimalBundle: "fee_waiver_plus_digital_access",
+        },
+        reasoning:
+          "Product strategy analysis: modeled 3 retention offers against Dr. Ramanathan's churn drivers. (1) Fee waiver: $950/year for 2 years, 72% acceptance probability — directly addresses fee sensitivity. (2) Rate match: 0.5% wealth mgmt fee reduction, 68% acceptance — matches competitor but erodes margin. (3) Exclusive digital platform access: 81% highest acceptance probability — addresses experience gap and signals investment in relationship. Optimal bundle: fee waiver + digital access. Economics: $42K retention cost protects $187K annual revenue — 3.46x ROI. Cannibalization risk low — no product substitution effects.",
+        tokensUsed: 560,
+        durationMs: 3300,
+      },
+      {
+        agentId: "relationship-orchestrator",
+        status: "completed",
+        inputData: {
+          customerId: "CUST-PR-2341",
+          retentionPriority: "critical",
+          recommendedBundle: "fee_waiver_plus_digital_access",
+          acceptanceProbability: 0.81,
+          regulatoryConstraints: ["suitability_requirement", "cooling_off_period"],
+        },
+        outputData: {
+          outreachTiming: "2026-03-04T10:00:00Z",
+          outreachChannel: "rm_personal_call",
+          rmBriefingGenerated: true,
+          rmId: "RM-Sarah-Chen",
+          digitalInterventionTriggered: true,
+          interventionDetails: "personalized_app_experience_preview",
+          effectivenessTracking: { checkpoints: ["48h_response", "7d_engagement", "30d_retention"] },
+          escalationPath: "wealth_director_if_no_response_72h",
+        },
+        reasoning:
+          "Orchestrating retention intervention for Dr. Ramanathan. Optimal timing: Tuesday 10 AM (her highest engagement window based on historical interaction data). Channel: personal call from RM Sarah Chen — highest conversion for platinum clients. RM briefing generated with full context: churn signals, relationship history, authorized offer bundle, and regulatory guardrails. Parallel digital intervention: personalized app preview of new wealth platform sent via push notification. Effectiveness tracking: 48-hour response check, 7-day engagement measurement, 30-day retention confirmation. Escalation: if no response in 72 hours, escalate to Wealth Director for executive outreach.",
+        tokensUsed: 480,
+        durationMs: 2150,
+      },
+    ],
+    weeklyPerformance: [
+      { week: "W1 Jan", successRate: 93.0 },
+      { week: "W2 Jan", successRate: 93.4 },
+      { week: "W3 Jan", successRate: 93.7 },
+      { week: "W4 Jan", successRate: 94.0 },
+      { week: "W1 Feb", successRate: 94.3 },
+      { week: "W2 Feb", successRate: 94.6 },
+      { week: "W3 Feb", successRate: 94.8 },
+      { week: "W4 Feb", successRate: 95.0 },
+      { week: "W1 Mar", successRate: 95.2 },
+      { week: "W2 Mar", successRate: 95.3 },
+      { week: "W3 Mar", successRate: 95.5 },
+      { week: "W4 Mar", successRate: 95.6 },
+    ],
+  },
+];
+
+// ── Workflow Builder Palette ──
+
+export const PALETTE_AGENTS: PaletteAgent[] = [
+  // Credit Cards
+  {
+    id: "pa-fraud-intel",
+    name: "Fraud Intelligence Agent",
+    domain: "Credit Cards",
+    role: "Investigation",
+    description: "Analyzes transaction patterns, cross-references fraud databases, scores risk, profiles customers, and flags suspicious transactions",
+    toolsUsed: ["analyzeTransactionPatterns", "crossRefFraudDB", "scoreTransactionRisk", "profileCustomerBehavior", "flagTransaction"],
+    avgDurationMs: 2800,
+    successRate: 97.3,
+  },
+  {
+    id: "pa-dispute-resolution",
+    name: "Dispute Resolution Agent",
+    domain: "Credit Cards",
+    role: "Adjudication",
+    description: "Gathers merchant evidence, evaluates chargeback rules, calculates provisional credit, and renders dispute decisions",
+    toolsUsed: ["gatherMerchantEvidence", "evaluateChargebackRules", "calculateProvisionalCredit", "renderDecision", "generateDisputeReport"],
+    avgDurationMs: 3200,
+    successRate: 95.8,
+  },
+  {
+    id: "pa-credit-decisioning",
+    name: "Credit Decisioning Agent",
+    domain: "Credit Cards",
+    role: "Underwriting",
+    description: "Pulls credit bureau data, models debt scenarios, assesses risk tiers, and generates credit decisions with rationale",
+    toolsUsed: ["pullCreditBureau", "modelDebtScenarios", "assessRiskTier", "generateDecision", "compileRationale"],
+    avgDurationMs: 3600,
+    successRate: 96.2,
+  },
+  // Risk & Compliance
+  {
+    id: "pa-aml-investigation",
+    name: "AML Investigation Agent",
+    domain: "Risk & Compliance",
+    role: "Investigation",
+    description: "Traces fund flows, screens sanctions lists, builds entity graphs, scores AML risk, and generates evidence chains",
+    toolsUsed: ["traceFundFlows", "screenSanctions", "buildEntityGraph", "scoreAMLRisk", "generateEvidenceChain"],
+    avgDurationMs: 4200,
+    successRate: 95.8,
+  },
+  {
+    id: "pa-regulatory-filing",
+    name: "Regulatory Filing Agent",
+    domain: "Risk & Compliance",
+    role: "Compliance",
+    description: "Compiles evidence packages, validates FinCEN schemas, checks completeness, stages submissions, and generates audit trails",
+    toolsUsed: ["compileEvidence", "validateFinCENSchema", "checkCompleteness", "stageSubmission", "generateAuditTrail"],
+    avgDurationMs: 3600,
+    successRate: 99.1,
+  },
+  {
+    id: "pa-customer-risk-profiler",
+    name: "Customer Risk Profiler",
+    domain: "Risk & Compliance",
+    role: "Analysis",
+    description: "Aggregates behavioral signals, analyzes velocity, assesses geographic risk, maps relationships, and computes composite scores",
+    toolsUsed: ["aggregateBehavioralSignals", "analyzeVelocity", "assessGeographicRisk", "mapRelationships", "computeCompositeScore"],
+    avgDurationMs: 3100,
+    successRate: 96.4,
+  },
+  // Platform Operations
+  {
+    id: "pa-incident-commander",
+    name: "Incident Commander Agent",
+    domain: "Platform Operations",
+    role: "Orchestration",
+    description: "Triages alerts, correlates monitoring systems, classifies severity, assigns response tracks, and coordinates workstreams",
+    toolsUsed: ["triageAlerts", "correlateMonitoringSystems", "classifySeverity", "assignResponseTracks", "coordinateWorkstreams"],
+    avgDurationMs: 1400,
+    successRate: 99.2,
+  },
+  {
+    id: "pa-infra-remediation",
+    name: "Infrastructure Remediation Agent",
+    domain: "Platform Operations",
+    role: "Remediation",
+    description: "Analyzes resource metrics, identifies bottlenecks, executes runbooks, validates health, and updates baselines",
+    toolsUsed: ["analyzeResourceMetrics", "identifyBottlenecks", "executeRunbook", "validateHealth", "updateBaselines"],
+    avgDurationMs: 3200,
+    successRate: 94.6,
+  },
+  {
+    id: "pa-incident-comms",
+    name: "Incident Communications Agent",
+    domain: "Platform Operations",
+    role: "Communication",
+    description: "Drafts status updates, sends multi-channel notifications, tracks acknowledgments, compiles PIRs, and escalates to leadership",
+    toolsUsed: ["draftStatusUpdate", "sendMultiChannelNotification", "trackAcknowledgments", "compilePIR", "escalateToLeadership"],
+    avgDurationMs: 1800,
+    successRate: 98.7,
+  },
+  // Customer Intelligence
+  {
+    id: "pa-attrition-prediction",
+    name: "Attrition Prediction Agent",
+    domain: "Customer Intelligence",
+    role: "Prediction",
+    description: "Analyzes engagement decay, detects transaction shifts, monitors competitive signals, scores sentiment, and computes churn probability",
+    toolsUsed: ["analyzeEngagementDecay", "detectTransactionShifts", "monitorCompetitiveSignals", "scoreSentiment", "computeChurnProbability"],
+    avgDurationMs: 2600,
+    successRate: 96.5,
+  },
+  {
+    id: "pa-product-strategy",
+    name: "Product Strategy Agent",
+    domain: "Customer Intelligence",
+    role: "Strategy",
+    description: "Evaluates product fit, models offer economics, simulates acceptance probability, constructs engagement plans, and assesses cannibalization",
+    toolsUsed: ["evaluateProductFit", "modelOfferEconomics", "simulateAcceptanceProbability", "constructEngagementPlan", "assessCannibalization"],
+    avgDurationMs: 3400,
+    successRate: 95.2,
+  },
+  {
+    id: "pa-relationship-orchestrator",
+    name: "Relationship Orchestrator Agent",
+    domain: "Customer Intelligence",
+    role: "Orchestration",
+    description: "Selects outreach timing, personalizes RM briefings, coordinates channels, triggers digital interventions, and measures effectiveness",
+    toolsUsed: ["selectOutreachTiming", "personalizeRMBriefing", "coordinateChannels", "triggerDigitalIntervention", "measureEffectiveness"],
+    avgDurationMs: 2200,
+    successRate: 97.4,
+  },
+];
+
+export const WORKFLOW_CANVAS_LAYOUTS: WorkflowCanvasLayout[] = [
+  {
+    templateId: "suspicious-activity-sar",
+    positions: {
+      "fraud-intel": { x: 0, y: 200 },
+      "aml-investigation": { x: 380, y: 60 },
+      "customer-risk-profiler": { x: 380, y: 340 },
+      "regulatory-filing": { x: 760, y: 200 },
+    },
+  },
+  {
+    templateId: "enterprise-incident-continuity",
+    positions: {
+      "incident-commander": { x: 0, y: 200 },
+      "infra-remediation": { x: 380, y: 60 },
+      "attrition-prediction-inc": { x: 380, y: 340 },
+      "incident-comms": { x: 760, y: 200 },
+    },
+  },
+  {
+    templateId: "high-value-retention",
+    positions: {
+      "attrition-prediction": { x: 0, y: 200 },
+      "customer-risk-profiler-ret": { x: 380, y: 60 },
+      "product-strategy": { x: 380, y: 340 },
+      "relationship-orchestrator": { x: 760, y: 200 },
+    },
+  },
+];
+
+// ── Cross-Domain AI Learning ──
+
+export const LEARNING_METRICS = {
+  accuracyImprovement: 8.7,
+  totalEvents: 147,
+  crossDomainTransfers: 12,
+  avgConfidence: 94.2,
+};
+
+export const LEARNING_TIME_SERIES: LearningTimeSeriesPoint[] = [
+  { week: "Dec W1", accuracy: 85.2, confidence: 86.1, responseQuality: 82.4, toolSelectionAccuracy: 88.3, escalationAccuracy: 79.5, resolutionSpeed: 81.0 },
+  { week: "Dec W2", accuracy: 85.8, confidence: 86.9, responseQuality: 83.1, toolSelectionAccuracy: 88.9, escalationAccuracy: 80.2, resolutionSpeed: 81.8 },
+  { week: "Dec W3", accuracy: 86.3, confidence: 87.5, responseQuality: 83.8, toolSelectionAccuracy: 89.4, escalationAccuracy: 81.0, resolutionSpeed: 82.5 },
+  { week: "Dec W4", accuracy: 86.9, confidence: 88.0, responseQuality: 84.5, toolSelectionAccuracy: 89.8, escalationAccuracy: 81.7, resolutionSpeed: 83.2 },
+  { week: "Jan W1", accuracy: 87.5, confidence: 88.6, responseQuality: 85.2, toolSelectionAccuracy: 90.3, escalationAccuracy: 82.5, resolutionSpeed: 84.0 },
+  { week: "Jan W2", accuracy: 88.0, confidence: 89.1, responseQuality: 85.8, toolSelectionAccuracy: 90.8, escalationAccuracy: 83.2, resolutionSpeed: 84.7 },
+  { week: "Jan W3", accuracy: 88.5, confidence: 89.7, responseQuality: 86.5, toolSelectionAccuracy: 91.2, escalationAccuracy: 83.9, resolutionSpeed: 85.4 },
+  { week: "Jan W4", accuracy: 89.1, confidence: 90.2, responseQuality: 87.1, toolSelectionAccuracy: 91.7, escalationAccuracy: 84.7, resolutionSpeed: 86.1 },
+  { week: "Feb W1", accuracy: 89.6, confidence: 90.8, responseQuality: 87.8, toolSelectionAccuracy: 92.1, escalationAccuracy: 85.4, resolutionSpeed: 86.8 },
+  { week: "Feb W2", accuracy: 90.2, confidence: 91.3, responseQuality: 88.4, toolSelectionAccuracy: 92.6, escalationAccuracy: 86.1, resolutionSpeed: 87.5 },
+  { week: "Feb W3", accuracy: 90.7, confidence: 91.9, responseQuality: 89.0, toolSelectionAccuracy: 93.0, escalationAccuracy: 86.8, resolutionSpeed: 88.2 },
+  { week: "Feb W4", accuracy: 91.3, confidence: 92.4, responseQuality: 89.6, toolSelectionAccuracy: 93.4, escalationAccuracy: 87.5, resolutionSpeed: 88.9 },
+  { week: "Mar W1", accuracy: 91.8, confidence: 93.0, responseQuality: 90.2, toolSelectionAccuracy: 93.9, escalationAccuracy: 88.2, resolutionSpeed: 89.6 },
+  { week: "Mar W2", accuracy: 92.4, confidence: 93.5, responseQuality: 90.8, toolSelectionAccuracy: 94.3, escalationAccuracy: 88.9, resolutionSpeed: 90.3 },
+  { week: "Mar W3", accuracy: 92.9, confidence: 94.0, responseQuality: 91.1, toolSelectionAccuracy: 94.7, escalationAccuracy: 89.3, resolutionSpeed: 90.7 },
+  { week: "Mar W4", accuracy: 93.9, confidence: 94.2, responseQuality: 91.5, toolSelectionAccuracy: 95.0, escalationAccuracy: 89.8, resolutionSpeed: 91.2 },
+];
+
+export const LEARNING_EVENTS: LearningEvent[] = [
+  {
+    id: "le-001",
+    timestamp: "2026-03-02T14:22:00Z",
+    category: "resolution_speed",
+    sourceDomain: "Credit Card Servicing",
+    targetDomain: "Credit Card Servicing",
+    title: "Prioritize fraud check on 'unauthorized charge' keyword",
+    description:
+      "When customer mentions 'unauthorized charge', skip balance inquiry and go directly to fraud detection — reduces resolution time by 23%.",
+    impact: "+23%",
+    impactValue: 23,
+    confidence: 96.3,
+    type: "pattern_learned",
+  },
+  {
+    id: "le-002",
+    timestamp: "2026-03-02T12:15:00Z",
+    category: "tool_selection",
+    sourceDomain: "Production Support",
+    targetDomain: "Production Support",
+    title: "Check connection pools before restarting services",
+    description:
+      "Learned to check connection pool metrics before initiating service restarts — reduced unnecessary restarts by 41%.",
+    impact: "-41%",
+    impactValue: 41,
+    confidence: 93.8,
+    type: "self_correction",
+  },
+  {
+    id: "le-003",
+    timestamp: "2026-03-02T10:30:00Z",
+    category: "escalation_accuracy",
+    sourceDomain: "Credit Card Servicing",
+    targetDomain: "Production Support",
+    title: "Urgency detection transfer: customer tone analysis",
+    description:
+      "Transferred urgency detection patterns from customer interactions to production alert triage — improved P1 detection accuracy by 18%.",
+    impact: "+18%",
+    impactValue: 18,
+    confidence: 91.5,
+    type: "cross_domain_transfer",
+  },
+  {
+    id: "le-004",
+    timestamp: "2026-03-01T16:45:00Z",
+    category: "response_quality",
+    sourceDomain: "Credit Card Servicing",
+    targetDomain: "Credit Card Servicing",
+    title: "Include estimated timeline in fraud responses",
+    description:
+      "Learned that including resolution timeline in fraud notification messages reduces customer callback rate by 35%.",
+    impact: "-35%",
+    impactValue: 35,
+    confidence: 94.7,
+    type: "pattern_learned",
+  },
+  {
+    id: "le-005",
+    timestamp: "2026-03-01T14:20:00Z",
+    category: "tool_selection",
+    sourceDomain: "Production Support",
+    targetDomain: "Credit Card Servicing",
+    title: "Root cause analysis pattern applied to dispute triage",
+    description:
+      "Applied production support root cause analysis methodology to credit card disputes — improved first-contact resolution by 27%.",
+    impact: "+27%",
+    impactValue: 27,
+    confidence: 89.2,
+    type: "cross_domain_transfer",
+  },
+  {
+    id: "le-006",
+    timestamp: "2026-03-01T09:10:00Z",
+    category: "resolution_speed",
+    sourceDomain: "Production Support",
+    targetDomain: "Production Support",
+    title: "Parallel diagnostics for multi-service incidents",
+    description:
+      "Learned to run log analysis and metrics queries in parallel for multi-service incidents — reduced diagnostic time by 52%.",
+    impact: "-52%",
+    impactValue: 52,
+    confidence: 97.1,
+    type: "self_correction",
+  },
+  {
+    id: "le-007",
+    timestamp: "2026-02-28T15:30:00Z",
+    category: "escalation_accuracy",
+    sourceDomain: "Credit Card Servicing",
+    targetDomain: "Credit Card Servicing",
+    title: "Adjusted fraud escalation threshold from 0.65 to 0.72",
+    description:
+      "Fine-tuned fraud escalation threshold based on 30-day analysis — reduced false escalations by 31% while maintaining 99.2% true positive rate.",
+    impact: "-31%",
+    impactValue: 31,
+    confidence: 95.8,
+    type: "threshold_adjustment",
+  },
+  {
+    id: "le-008",
+    timestamp: "2026-02-28T11:00:00Z",
+    category: "response_quality",
+    sourceDomain: "Production Support",
+    targetDomain: "Production Support",
+    title: "Structured incident updates improve stakeholder clarity",
+    description:
+      "Adopting 'Impact / Root Cause / ETA / Actions' format for status updates improved stakeholder satisfaction scores by 44%.",
+    impact: "+44%",
+    impactValue: 44,
+    confidence: 92.4,
+    type: "pattern_learned",
+  },
+  {
+    id: "le-009",
+    timestamp: "2026-02-27T16:15:00Z",
+    category: "tool_selection",
+    sourceDomain: "Credit Card Servicing",
+    targetDomain: "Credit Card Servicing",
+    title: "Use getShipmentStatus before escalating delivery complaints",
+    description:
+      "Check shipment status first for delivery complaints instead of immediately escalating — resolved 68% of cases without human intervention.",
+    impact: "+68%",
+    impactValue: 68,
+    confidence: 98.1,
+    type: "self_correction",
+  },
+  {
+    id: "le-010",
+    timestamp: "2026-02-27T10:45:00Z",
+    category: "resolution_speed",
+    sourceDomain: "Credit Card Servicing",
+    targetDomain: "Production Support",
+    title: "Customer-facing communication patterns improve incident comms",
+    description:
+      "Applied credit card servicing's empathetic communication patterns to production incident stakeholder updates — improved response time acknowledgment by 29%.",
+    impact: "+29%",
+    impactValue: 29,
+    confidence: 87.6,
+    type: "cross_domain_transfer",
+  },
+  {
+    id: "le-011",
+    timestamp: "2026-02-26T14:30:00Z",
+    category: "escalation_accuracy",
+    sourceDomain: "Production Support",
+    targetDomain: "Production Support",
+    title: "Calibrated P1/P2 severity classification",
+    description:
+      "Recalibrated incident severity based on business impact metrics instead of error rate alone — P1 classification accuracy improved by 22%.",
+    impact: "+22%",
+    impactValue: 22,
+    confidence: 93.0,
+    type: "threshold_adjustment",
+  },
+  {
+    id: "le-012",
+    timestamp: "2026-02-25T09:00:00Z",
+    category: "response_quality",
+    sourceDomain: "Credit Card Servicing",
+    targetDomain: "Credit Card Servicing",
+    title: "Proactive balance alerts reduce inbound volume",
+    description:
+      "Sending proactive low-balance alerts with payment links reduced related inbound inquiries by 19%.",
+    impact: "-19%",
+    impactValue: 19,
+    confidence: 90.5,
+    type: "pattern_learned",
+  },
+];
+
+export const BEFORE_AFTER_COMPARISONS: BeforeAfterComparison[] = [
+  {
+    id: "ba-001",
+    title: "Fraud Detection Response",
+    category: "Credit Card Servicing",
+    scenario:
+      "Customer reports an unauthorized $500 charge at an online electronics store. Account has no prior fraud history.",
+    beforeResponse:
+      "I see a charge of $500 at ElectroStore on your account. I'll flag this as potentially fraudulent and our fraud team will investigate. You should hear back within 5-7 business days. Is there anything else I can help with?",
+    afterResponse:
+      "I can see the $500 charge at ElectroStore on your card ending 4821. I've already checked your recent activity and this merchant doesn't match your spending pattern. I'm initiating an immediate fraud investigation and temporarily freezing this card to prevent further charges. A replacement card will arrive in 2-3 business days. I've also issued a provisional credit of $500 while we investigate. You'll receive a confirmation email within the next few minutes. Would you like me to review any other recent charges?",
+    beforeMetrics: {
+      resolutionTime: 142,
+      customerSatisfaction: 62,
+      firstContactResolution: 45,
+    },
+    afterMetrics: {
+      resolutionTime: 34,
+      customerSatisfaction: 94,
+      firstContactResolution: 91,
+    },
+  },
+  {
+    id: "ba-002",
+    title: "Production Incident Diagnosis",
+    category: "Production Support",
+    scenario:
+      "Payment gateway error rate spikes to 15%. Multiple services showing elevated latency.",
+    beforeResponse:
+      "Payment gateway is showing elevated errors. Restarting the payment-gateway service across all replicas. If the issue persists, escalating to the platform team.",
+    afterResponse:
+      "Payment gateway error rate at 15%. Before restarting, checking connection pool metrics: 487/500 connections active, 892 in queue. Root cause identified: stale connection leak after upstream timeout change at 14:15 UTC. Flushing 298 stale connections and adjusting idle timeout from 300s to 30s. Error rate recovering — down to 2.1% and dropping. Scaling replicas 3→5 temporarily to clear backlog. No restart needed.",
+    beforeMetrics: {
+      mttr: 18,
+      falseRestarts: 34,
+      rootCauseAccuracy: 52,
+    },
+    afterMetrics: {
+      mttr: 4,
+      falseRestarts: 8,
+      rootCauseAccuracy: 89,
+    },
+  },
+  {
+    id: "ba-003",
+    title: "Escalation Decision",
+    category: "Credit Card Servicing",
+    scenario:
+      "Customer inquiring about a pending charge that appears duplicated. Amount is $47.50 at a grocery store.",
+    beforeResponse:
+      "I see the duplicate charge. This looks like potential fraud — escalating to our fraud team for immediate investigation. Your card may need to be frozen as a precaution.",
+    afterResponse:
+      "I can see two charges of $47.50 at FreshMart. This is very common with grocery stores — one is a pre-authorization hold that will drop off within 24-48 hours. Your actual balance will only reflect one charge. I can see the hold was placed 2 hours ago, so it should resolve by tomorrow. No fraud concern here. Would you like me to set up a notification for when the hold drops off?",
+    beforeMetrics: {
+      falseEscalations: 45,
+      customerEffort: 78,
+      accuracy: 61,
+    },
+    afterMetrics: {
+      falseEscalations: 12,
+      customerEffort: 22,
+      accuracy: 94,
+    },
+  },
+  {
+    id: "ba-004",
+    title: "Cross-Domain Knowledge Application",
+    category: "Cross-Domain",
+    scenario:
+      "Production incident during peak credit card processing hours. Need to communicate impact to business stakeholders.",
+    beforeResponse:
+      "INCIDENT UPDATE: Payment processing service experiencing errors. Engineering team investigating. Will update when resolved.",
+    afterResponse:
+      "INCIDENT UPDATE — Payment Processing\n\nImpact: ~1,200 transactions/min affected (12% of normal volume). No data loss — transactions are queued.\n\nRoot Cause: Connection pool saturation in payment-gateway (identified, fix in progress).\n\nETA: Full recovery expected within 5 minutes. Queued transactions will process automatically.\n\nActions: Stale connections flushed, replicas scaling 3→5, monitoring recovery metrics in real-time.\n\nNext update in 5 minutes or upon resolution.",
+    beforeMetrics: {
+      stakeholderClarity: 32,
+      followUpQuestions: 8,
+      communicationScore: 41,
+    },
+    afterMetrics: {
+      stakeholderClarity: 91,
+      followUpQuestions: 1,
+      communicationScore: 94,
+    },
+  },
+];
+
+export const CROSS_DOMAIN_TRANSFERS: CrossDomainTransfer[] = [
+  {
+    id: "cdt-001",
+    patternName: "Urgency Detection",
+    sourceDomain: "Credit Card Servicing",
+    targetDomains: ["Production Support"],
+    description:
+      "Customer urgency patterns from credit card interactions (tone, keyword frequency, repeated contacts) applied to production alert severity classification. Improved P1 detection by recognizing business impact signals faster.",
+    accuracyGain: 18.3,
+    status: "active",
+  },
+  {
+    id: "cdt-002",
+    patternName: "Root Cause Analysis Methodology",
+    sourceDomain: "Production Support",
+    targetDomains: ["Credit Card Servicing"],
+    description:
+      "Systematic diagnostic approach from production incident investigation (check metrics → trace dependencies → identify root cause) applied to credit card dispute resolution. Reduced misclassification of transaction disputes.",
+    accuracyGain: 27.1,
+    status: "active",
+  },
+  {
+    id: "cdt-003",
+    patternName: "Escalation Calibration",
+    sourceDomain: "Credit Card Servicing",
+    targetDomains: ["Production Support"],
+    description:
+      "Risk-based escalation thresholds from fraud detection applied to incident severity assessment. Uses confidence scores and historical patterns rather than static rules to determine when human intervention is needed.",
+    accuracyGain: 14.7,
+    status: "evaluating",
+  },
+];
+
+export const DOMAIN_LEARNING_SCORES = [
+  {
+    domain: "Credit Card Servicing",
+    accuracyBefore: 84.1,
+    accuracyCurrent: 93.2,
+    improvement: 9.1,
+    totalEvents: 82,
+    topCategory: "response_quality" as const,
+  },
+  {
+    domain: "Production Support",
+    accuracyBefore: 86.3,
+    accuracyCurrent: 94.6,
+    improvement: 8.3,
+    totalEvents: 65,
+    topCategory: "tool_selection" as const,
+  },
+];

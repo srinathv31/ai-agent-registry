@@ -132,6 +132,137 @@ export interface PendingApproval {
   risk: "low" | "medium" | "high";
 }
 
+// ── Agent Workflows ──
+
+export interface WorkflowAgent {
+  id: string;
+  name: string;
+  domain: string;
+  role: string;
+  toolsUsed: string[];
+  avgDurationMs: number;
+  successRate: number;
+}
+
+export interface WorkflowConnection {
+  fromAgentId: string;
+  toAgentId: string;
+  dataPassed: string;
+  condition?: string;
+}
+
+export interface WorkflowAgentResult {
+  agentId: string;
+  status: "pending" | "running" | "completed" | "failed";
+  inputData: Record<string, unknown>;
+  outputData: Record<string, unknown>;
+  reasoning: string;
+  tokensUsed: number;
+  durationMs: number;
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  agents: WorkflowAgent[];
+  connections: WorkflowConnection[];
+  metrics: {
+    totalRuns: number;
+    successRate: number;
+    avgDuration: string;
+  };
+  runResult: WorkflowAgentResult[];
+  weeklyPerformance: { week: string; successRate: number }[];
+}
+
+// ── Workflow Builder ──
+
+export interface PaletteAgent {
+  id: string;
+  name: string;
+  domain: "Credit Cards" | "Risk & Compliance" | "Platform Operations" | "Customer Intelligence";
+  role: string;
+  description: string;
+  toolsUsed: string[];
+  avgDurationMs: number;
+  successRate: number;
+}
+
+export interface WorkflowNodeData {
+  agent: PaletteAgent;
+  simulationStatus: "idle" | "running" | "completed" | "failed";
+  [key: string]: unknown;
+}
+
+export interface WorkflowEdgeData {
+  dataPassed: string;
+  condition?: string;
+  animated?: boolean;
+  [key: string]: unknown;
+}
+
+export interface WorkflowCanvasLayout {
+  templateId: string;
+  positions: Record<string, { x: number; y: number }>;
+}
+
+// ── Cross-Domain AI Learning ──
+
+export interface LearningEvent {
+  id: string;
+  timestamp: string;
+  category:
+    | "response_quality"
+    | "tool_selection"
+    | "escalation_accuracy"
+    | "resolution_speed";
+  sourceDomain: string;
+  targetDomain: string;
+  title: string;
+  description: string;
+  impact: string;
+  impactValue: number;
+  confidence: number;
+  type:
+    | "pattern_learned"
+    | "self_correction"
+    | "cross_domain_transfer"
+    | "threshold_adjustment";
+}
+
+export interface LearningTimeSeriesPoint {
+  week: string;
+  accuracy: number;
+  confidence: number;
+  responseQuality: number;
+  toolSelectionAccuracy: number;
+  escalationAccuracy: number;
+  resolutionSpeed: number;
+}
+
+export interface BeforeAfterComparison {
+  id: string;
+  title: string;
+  category: string;
+  scenario: string;
+  beforeResponse: string;
+  afterResponse: string;
+  beforeMetrics: Record<string, number>;
+  afterMetrics: Record<string, number>;
+}
+
+export interface CrossDomainTransfer {
+  id: string;
+  patternName: string;
+  sourceDomain: string;
+  targetDomains: string[];
+  description: string;
+  accuracyGain: number;
+  status: "active" | "evaluating";
+}
+
 // ── Dashboard ──
 
 export interface DashboardMetrics {

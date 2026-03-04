@@ -131,3 +131,59 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── React Flow Overrides ── */
+
+.workflow-canvas .react-flow__background {
+  --xy-background-color: var(--background);
+  --xy-background-pattern-color: oklch(0.708 0 0 / 20%);
+}
+
+.dark .workflow-canvas .react-flow__background {
+  --xy-background-pattern-color: oklch(0.556 0 0 / 25%);
+}
+
+.workflow-controls {
+  --xy-controls-button-background-color: var(--card);
+  --xy-controls-button-background-color-hover: var(--accent);
+  --xy-controls-button-color: var(--foreground);
+  --xy-controls-button-border-color: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 10%);
+}
+
+.workflow-minimap {
+  --xy-minimap-background-color: var(--card);
+  --xy-minimap-mask-background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 10%);
+}
+
+.workflow-canvas .react-flow__node {
+  cursor: grab;
+}
+
+.workflow-canvas .react-flow__node:active {
+  cursor: grabbing;
+}
+
+.workflow-canvas .react-flow__handle {
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.workflow-canvas .react-flow__handle:hover {
+  transform: scale(1.3);
+  box-shadow: 0 0 0 3px oklch(0.508 0.118 252 / 30%);
+}
+
+.workflow-canvas .react-flow__edge-path {
+  stroke-linecap: round;
+}
+
+@keyframes edgeFlow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}

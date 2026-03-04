@@ -8,6 +8,8 @@ import {
   Globe,
   MessageSquare,
   ShieldCheck,
+  Workflow,
+  Brain,
 } from "lucide-react"
 import {
   Sidebar,
@@ -26,6 +28,8 @@ const navItems = [
   { label: "Domains", href: "/domains", icon: Globe },
   { label: "Sessions", href: "/sessions", icon: MessageSquare },
   { label: "Approvals", href: "/approvals", icon: ShieldCheck },
+  { label: "Workflows", href: "/workflows", icon: Workflow },
+  { label: "AI Learning", href: "/learning", icon: Brain },
 ]
 
 export function AppSidebar() {
